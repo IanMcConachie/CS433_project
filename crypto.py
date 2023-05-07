@@ -1,7 +1,7 @@
 """
 Author:             Ian McConachie
 Date Created:       05.04.2023
-Last Date Modified:	05.04.2023
+Last Date Modified:	05.06.2023
 
 This file defines the functions necessary for the cryptographic component of
 Stegosaurus. See cryptography.md in the docs folder for more detail.
@@ -20,7 +20,7 @@ cons_wm = 'stegosaurus'
 from Crypto.Cipher import AES
 
 
-## Helper Functions
+## Modular Functions
 
 def AES_setup(key):
 	"""
@@ -32,8 +32,8 @@ def AES_setup(key):
 	which to base the symmetric encryption on.
 	"""
 	cipher = AES.new(key, AES.MODE_EAX) 	# Init AES system
-	nonce = cipher.nonce		# nonce = number used once
-	return cipher, nonce
+	num_once = cipher.nonce		            # nonce = number used once
+	return cipher, num_once
 
 def AES_encrypt(cipher, data):
 	"""
@@ -67,16 +67,29 @@ def Assemble_msg(cipher, c_data, p_data):
 	msg = c_text + tag + p_data + cons_wm		# do we need to include the tag here?
 	return msg
 
+def generate_msg(key, c_data, p_data):
+	"""
+	:inputs:	key     [bytes]
+	            c_data  [bytes]
+	            p_data  [bytes]
+	:returns:   msg     [str]
+
+	This is essentially just a function that combines the AES_setup and
+	Assemble_msg functions from above into one function for ease of use with
+	Flask framework.
+	"""
+	cipher, num_once = AES_setup(key)
+	msg = Assemble_msg(cipher, c_data, p_data)
+	return msg
+
 
 ## Main Function
 
 def main():
-	cipher, nonce = AES_setup(key)
 	c_data = b'test_cipher_data'
 	p_data = b'test_plain_data'
-	msg = Assemble_msg(cipher, c_data, p_data)
+	msg = generate_msg(key, c_data, p_data)
 	return msg
-	
 
 
 if __name__ == '__main__':
