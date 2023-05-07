@@ -101,50 +101,6 @@ def register():
         flash(u"User already exists in the database! Try picking a more unique username")
     return render_template("register.html", form=form)
 
-@app.route("/secret")
-@login_required
-def secret():
-    return render_template('secret.html')
-
-@app.route('/everything')
-@login_required
-def everything():
-    token = current_user.token
-    k = request.args.get("k", type=int) or -1
-    csv = request.args.get("csv", type=str)
-    app.logger.debug("k = {}".format(k))
-    app.logger.debug("csv= {}".format(csv))
-    if csv == None:
-        r = requests.get(f'http://restapi:5000/listAll?top={k}&token={token}')
-    else:
-        r = requests.get(f'http://restapi:5000/listAll/csv?top={k}&token={token}')
-    return r.text
-
-@app.route('/open')
-@login_required
-def open():
-    token = current_user.token
-    k = request.args.get("k", type=int) or -1
-    csv = request.args.get("csv", type=str)
-    if csv == None:
-        r = requests.get(f'http://restapi:5000/listOpenOnly?top={k}&token={token}')
-    else:
-        r = requests.get(f'http://restapi:5000/listOpenOnly/csv?top={k}&token={token}')
-    return r.text
-
-@app.route('/close')
-@login_required
-def close():
-    token = current_user.token
-    k = request.args.get("k", type=int) or -1
-    csv = request.args.get("csv", type=str)
-    if csv == None:
-        r = requests.get(f'http://restapi:5000/listCloseOnly?top={k}&token={token}')
-    else:
-        r = requests.get(f'http://restapi:5000/listCloseOnly/csv?top={k}&token={token}')
-    return r.text
-
-###
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
