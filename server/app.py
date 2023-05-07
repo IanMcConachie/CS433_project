@@ -2,18 +2,16 @@ from flask import Flask, request, jsonify, make_response
 from flask_restful import Resource, Api
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from passlib.apps import custom_app_context as pwd_context
-from itsdangerous import (TimedJSONWebSignatureSerializer \
-                                  as Serializer, BadSignature, \
-                                  SignatureExpired)
-import configparser
+from authlib.jose import jwt
+from configparser import ConfigParser
 
 app = Flask(__name__)
 api = Api(app)
 
 # read configuration values from config.ini file
-config = configparser.ConfigParser()
+config = ConfigParser()
 config.read('config.ini')
 
 # configure database connection
@@ -48,21 +46,20 @@ Base.metadata.create_all(engine)
 SECRET_KEY = 'test1234@#$'
 
 def generate_auth_token(id, expiration=600):
-   s = Serializer(SECRET_KEY, expires_in=expiration)
-   return s.dumps({"id":id})
+    header = {'alg': 'HS256'}
+    payload = {'id': id}
+    return jwt.encode(header, payload, SECRET_KEY, exp=expiration)
 
 def verify_auth_token(token):
-    s = Serializer(SECRET_KEY)
     try:
-        data = s.loads(token)
-    except SignatureExpired:
+        data = jwt.decode(token, SECRET_KEY)
+        return "Success"
+    except jwt.ExpiredSignatureError:
         app.logger.debug("***EXPIRED***")
         return None    # valid token, but expired
-    except BadSignature:
-        app.logger.debug("***BAD SIGNATURE***")
+    except jwt.InvalidTokenError:
+        app.logger.debug("***INVALID TOKEN***")
         return None    # invalid token
-    return "Success"
-
 
 class Register(Resource):
     def post(self):
@@ -98,15 +95,18 @@ class Token(Resource):
         return {
             "response":"Success", 
             "id":user.id,
-            "token":str(token)[2:-1]
+            "token":str(token)
         }, 201
+        
 
 class UserById(Resource):
     def get(self, id):
         session = Session()
         user = session.query(User).filter_by(id=id).first()
         if user is not None:
-            return jsonify({'id': user.id, 'username': user.username})
+            claims = {'sub': user.id, 'name': user.username}
+            token = jwt.encode({'alg': 'HS256', 'typ': 'JWT'}, claims, app.config['SECRET_KEY'])
+            return jsonify({'id': user.id, 'username': user.username, 'token': token})
         return jsonify({'id': "FAILURE"})
 
 api.add_resource(Register, '/register')
