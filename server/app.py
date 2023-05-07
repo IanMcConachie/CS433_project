@@ -5,6 +5,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import declarative_base
 from passlib.apps import custom_app_context as pwd_context
 from authlib.jose import jwt
+from datetime import datetime, timedelta
+from authlib.jose.errors import DecodeError, ExpiredTokenError
 from configparser import ConfigParser
 
 app = Flask(__name__)
@@ -45,21 +47,39 @@ Base.metadata.create_all(engine)
 # define secret key for token generation
 SECRET_KEY = 'test1234@#$'
 
-def generate_auth_token(id, expiration=600):
-    header = {'alg': 'HS256'}
-    payload = {'id': id}
-    return jwt.encode(header, payload, SECRET_KEY, exp=expiration)
+def generate_auth_token(payload, expires_in_minutes=60):
+    """
+    Generate a JWT with the given payload and expiration time.
+    :param payload: The payload to include in the JWT.
+    :param expires_in_minutes: The number of minutes until the JWT should expire.
+    :return: The encoded JWT.
+    """
+    now = datetime.utcnow()
+    payload['exp'] = now + timedelta(minutes=expires_in_minutes)
+    payload['iat'] = now
 
-def verify_auth_token(token):
+    header = {'alg': 'HS256'}
+    token = jwt.encode(header, payload, SECRET_KEY)
+    app.logger.debug(f"***TOKEN = {token}***")
+    return token
+    
+def verify_auth_token(encoded_jwt):
+    """
+    Verify a JWT and return the payload if valid.
+    :param encoded_jwt: The encoded JWT to verify.
+    :return: The payload contained in the JWT if the JWT is valid.
+    :raises DecodeError: If the JWT is invalid.
+    """
     try:
-        data = jwt.decode(token, SECRET_KEY)
-        return "Success"
-    except jwt.ExpiredSignatureError:
-        app.logger.debug("***EXPIRED***")
-        return None    # valid token, but expired
-    except jwt.InvalidTokenError:
+        header, payload = jwt.decode(encoded_jwt, SECRET_KEY, algorithms=['HS256'])
+        return payload
+    except DecodeError:
         app.logger.debug("***INVALID TOKEN***")
-        return None    # invalid token
+        return None
+    except ExpiredTokenError:
+        app.logger.debug("***INVALID TOKEN***")
+        return None
+
 
 class Register(Resource):
     def post(self):
@@ -83,20 +103,26 @@ class Token(Resource):
     def get(self):
         password = request.args.get('password', type=str)
         username = request.args.get('username', type=str)
+        
+        app.logger.debug("***Log in attempt***")
+        app.logger.debug(f"***User={username}***")
 
         # verify credentials
         session = Session()
         user = session.query(User).filter_by(username=username).first()
         if user is None or not user.verify_password(password):
             return {'response':'Failure'}, 401
-
+        
+        app.logger.debug(f"***User found = {user.id}***")
         # generate and return token
-        token = generate_auth_token(user.id)
-        return {
+        token = generate_auth_token({'user_id': user.id})
+        app.logger.debug("***TOKEN = {token}***")
+        response_success =  {
             "response":"Success", 
             "id":user.id,
             "token":str(token)
-        }, 201
+        }
+        return make_response(jsonify(response_success), 201)
         
 
 class UserById(Resource):

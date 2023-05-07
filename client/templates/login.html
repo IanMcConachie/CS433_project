@@ -1,18 +1,40 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
 {% block content %}
-  <h2>Login</h2>
-  <form method="POST">
+  <h1>Login</h1>
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <ul class="flashes">
+      {% for message in messages %}
+        <li>{{ message }}</li>
+      {% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
+
+  <form method="POST" action="{{ url_for('login') }}">
     {{ form.hidden_tag() }}
+
     <p>
       {{ form.username.label }}<br>
-      {{ form.username() }}
+      {{ form.username(size=25) }}<br>
+      {% for error in form.username.errors %}
+        <span style="color: red;">[{{ error }}]</span><br>
+      {% endfor %}
     </p>
+
     <p>
       {{ form.password.label }}<br>
-      {{ form.password() }}
+      {{ form.password(size=25) }}<br>
+      {% for error in form.password.errors %}
+        <span style="color: red;">[{{ error }}]</span><br>
+      {% endfor %}
     </p>
-    <p>{{ form.remember.label }} {{ form.remember() }}</p>
-    <p>{{ form.submit() }}</p>
+
+    <p>
+      {{ form.remember }} {{ form.remember.label }}
+    </p>
+
+    <p><input type="submit" value="Log In"></p>
   </form>
 {% endblock %}
