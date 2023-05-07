@@ -12,7 +12,7 @@ Stegosaurus. See cryptography.md in the docs folder for more detail.
 # 16-byte key (In future, we will get from DB)
 key = b'0123456701234567'
 # The constant watermark that will be embedded in plaintext onto all imgs
-cons_wm = 'stegosaurus'
+cons_wm = '304b475d1a0d5eba9fc7e3d821076c8bc0f33b813d42977a3dc1902b64924cc8'
 
 
 ## Import Statements
@@ -86,9 +86,10 @@ def generate_msg(key, c_data, p_data):
 ## Main Function
 
 def main():
-	c_data = b'test_cipher_data'
-	p_data = b'test_plain_data'
+	c_data = b'304b475d1a0d5eba9fc7e3d821076c8bc0f33b813d42977a3dc1902b64924cc8304b475d1a0d5eba9fc7e3d821076c8bc0f33b813d42977a3dc1902b64924cc8'
+	p_data = b'304b475d1a0d5eba9fc7e3d821076c8bc0f33b813d42977a3dc1902b64924cc8'
 	msg = generate_msg(key, c_data, p_data)
+	print(msg)
 	return msg
 
 
