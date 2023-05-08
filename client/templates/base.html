@@ -13,11 +13,11 @@
         <div class="menu">
             <ul>
                 {% if current_user.is_authenticated %}
-                <li></li><a href="{{ url_for('upload') }}">Upload an Image!</a></li>
+                <li><a href="{{ url_for('upload') }}">Upload an Image!</a></li>
                 <li><a href="{{ url_for('logout') }}">Logout</a></li>
                 {% else %}
-                <li></li><a href="{{ url_for('register') }}">Register!</a></li>
-                <li><a href="{{ url_for('login') }}">Login</a><li></li>
+                <li><a href="{{ url_for('register') }}">Register!</a></li>
+                <li><a href="{{ url_for('login') }}">Login</a></li>
                 {% endif %}
             </ul>
         </div>
@@ -32,8 +32,6 @@
         {% endfor %}
         {% endif %}
         {% endwith %}
-    </div>
-    <div class="container">
         {% block content %}{% endblock %}
     </div>
 </body>
