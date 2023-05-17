@@ -8,33 +8,32 @@ class ImageHandler:
         new_image_path = None
 
     def load_image(self):
-        # Code to load image from file
+        # Load image
         try:
             self.image = Image.open(self.image_file)
         except IOError:
             print("Unable to load image file")
-        # pass
 
     def save_image(self, new_image_path):
+        # Save image to new file path
         try:
             self.image.save(new_image_path)
         except IOError:
             print("Unable to save image")
 
-    def process_image(self):
-        # Process the image here
-        pass
-
     def display_image(self):
+        # Display image
         try:
             ImageShow.show(self.image)
         except OSError:
             print("Unable to display image")
 
+
 class SignatureEncoder:
-    def __init__(self, signature, img):
+    def __init__(self, signature, img: ImageHandler):
         self.signature = signature
         self.img = img
+        self.img_name = img.image_file
 
     def encode_signature(self):
         # Code for encoding the digital signature into the image
@@ -57,15 +56,14 @@ class SignatureEncoder:
         # Convert message into binary
         binary_list = [bin(ord(char))[2:].zfill(8) for char in self.signature]
         messageBin = ''.join(binary_list)
-        # print(messageBin)
-        # print(binary_list)
 
         # Set binary increment
         binCount = 0
 
-        # Color select pixels white
+        # Iterate between each fixed pixel to-be encoded
         for i in range(40):
             for j in range(32):
+                # Get pixel tuple values
                 r = pixels[(i * widthStep) + widthBuff, j * heightStep + heightBuff][0]
                 g = pixels[(i * widthStep) + widthBuff, j * heightStep + heightBuff][1]
                 b = pixels[(i * widthStep) + widthBuff, j * heightStep + heightBuff][2]
@@ -73,23 +71,24 @@ class SignatureEncoder:
                 # If pixel r is even and bin is odd
                 if r % 2 == 0 and messageBin[binCount] == '1':
                     r += 1
-                
-                # If pixel r is odd and bin is even
+
+                # Else if pixel r is odd and bin is even
                 elif r % 2 == 1 and messageBin[binCount] == '0':
                     r -= 1
-
                 binCount += 1
+
                 # If pixel g is even and bin is odd
                 if g % 2 == 0 and messageBin[binCount] == '1':
                     g += 1
-                
-                # If pixel g is odd and bin is even
+
+                # Else if pixel g is odd and bin is even
                 elif g % 2 == 1 and messageBin[binCount] == '0':
                     g -= 1
-
                 binCount += 1
 
+                # Skip every 3rd pixel's blue value
                 if (binCount + 1) % 9 != 0:
+
                     # If pixel b is even and bin is odd
                     if b % 2 == 0 and messageBin[binCount] == '1':
                         b += 1
@@ -97,23 +96,40 @@ class SignatureEncoder:
                     # If pixel b is odd and bin is even
                     elif b % 2 == 1 and messageBin[binCount] == '0':
                         b -= 1
-                    
                     binCount += 1
 
+                # Reassign encoded RGB tuple value to pixel
                 pixels[(i * widthStep) + widthBuff, j * heightStep + heightBuff] = (r, g, b)
 
-        # Save the modified image
-        self.img.save_image("modified_image.jpg")
+        # Encode 3840th binary into the final pixel r-value
+        # Get final pixel tuple values
+        lastR = pixels[imageWidth - 1, imageHeight - 1][0]
+        lastG = pixels[imageWidth - 1, imageHeight - 1][1]
+        lastB = pixels[imageWidth - 1, imageHeight - 1][2]
 
-        # pass
+        # If pixel r is even and bin is odd
+        if lastR % 2 == 0 and messageBin[3839] == "1":
+            lastR += 1
+
+        # Else if pixel r is odd and bin is even
+        elif lastR % 2 == 1 and messageBin[3839] == "0":
+            lastR -= 1
+
+        # Reassign encoded RGB tuple value to final pixel
+        pixels[imageWidth - 1, imageHeight - 1] = (lastR, lastG, lastB)
+
+        # Save the modified image
+        self.new_image_name = self.img_name.replace(".png", "_signed.png")
+        self.img.save_image(self.new_image_name)
 
 
 class SignatureDecoder:
-    def __init__(self, encoded_img):
+    def __init__(self, encoded_img: ImageHandler):
         self.encoded_img = encoded_img
 
     def decode_signature(self):
         # Code for decoding the digital signature from the image
+
         # Get pixel values
         pixels = self.encoded_img.image.load()
 
@@ -129,38 +145,50 @@ class SignatureDecoder:
         widthBuff = imageWidth // 64
         heightBuff= imageHeight // 61
 
-        # Declare msg string
-
+        # Declare raw binary message string
         decodedBinMsg = ''
 
+        # Set binary increment
+        binCount = 0
+
+        # Iterate between each fixed pixel to-be decoded
         for i in range(40):
             for j in range(32):
+                # Get pixel tuple values
                 r = pixels[(i * widthStep) + widthBuff, j * heightStep + heightBuff][0]
                 g = pixels[(i * widthStep) + widthBuff, j * heightStep + heightBuff][1]
                 b = pixels[(i * widthStep) + widthBuff, j * heightStep + heightBuff][2]
 
+                # if red is even, binary is 0, else 1 because even
                 decodedBinMsg += '0' if r % 2 == 0 else '1'
+                binCount += 1
+
+                # if green is even, binary is 0, else 1 because even
                 decodedBinMsg += '0' if g % 2 == 0 else '1'
-                decodedBinMsg += '0' if b % 2 == 0 else '1'
+                binCount += 1
 
-        print("doy")
-        # print(decodedBinMsg)
+                # if blue is even, binary is 0, else 1 because even
+                # Skip every 3rd pixel's blue value
+                if (binCount + 1) % 9 != 0 or binCount + 1 == 3840:
+                    decodedBinMsg += '0' if b % 2 == 0 else '1'
+                    binCount += 1
 
+        # Decode final pixel r-value to get 3840th binary
+        # Get final pixel tuple r-value
+        lastChar = pixels[imageWidth - 1, imageHeight - 1][0]
+
+        # if final red is even, binary is 0, else 1 because even
+        decodedBinMsg += '0' if lastChar % 2 == 0 else '1'
+
+        # Split raw binary data into 8-bit binary values
         dividedBin = [decodedBinMsg[i:i+8] for i in range(0, len(decodedBinMsg), 8)]
-        # print(dividedBin)
 
-        # Convert signature into message
+        # Extract encoded message from digital signature
         text = ''.join([chr(int(binary, 2)) for binary in dividedBin])
-        # print(text)
-        # if text == self.signature:
-        #     print("DOY")
-        # else:
-        #     print("NOOO")
 
-        
-        # print(dividedBin)
-
-        pass
+        # Return text
+        print(text)
+        # return text
 
 
 class CryptographyHandler:
@@ -212,31 +240,7 @@ class UserInterface:
 '''
 TODOLIST
 
-    Determine change of pixel RGB based on encrypted key
-        +/-1 to RGB value, ex) 3R 2B 3G : ++(*(+1))*-*/+, create case for if original RGB value is 0/255
-        Decoding will be difficult; server only receiving pixels
-            server can take sent pixel, take its +/-1 of RGB, and perform check on altered to see if match possible
-
-        alt: 1 pixel RGB per char of key, therefore need 128/3 pixels = 42 + 2/3 pixels rather than 16
-            more straightforward to encode, simpler to decode
-                simple = more vulnerable, but easier to implement
-                    easier > secure, as msg is encrypted still; double security
-
-            NOTEE: 1 key char hypo would need 3 pixels, so real need = 3 * 128 = 384 pixels
-                Can't realistically fix scattered selection of pixels, nor select the order without coding a lot of specifics
-                    could do pattern (ie: floor(width / 384))
-    
-            Could hash msg to sign, and try to replicated hashed signature on server side to decode?
-                Can't extract msg from sent pixels, but can still verify
-
-            
-    Take any terminal inputted img to sign
-
-    Make select pixels scalable with jpg size
-
     Connect with front-end
-
-    
-CURRENT PROBLEM WITH ENCODING
+        Change fixed signature input to be determined by 
 
 '''

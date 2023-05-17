@@ -1,62 +1,78 @@
+import sys
+import os
+import argparse
+
 from PIL import Image
 from structures import *
 
-# # Creating instances of the classes
-# image_handler = structures.ImageHandler("image.jpg")
-# signature_encoder = structures.SignatureEncoder("signature_data")
-# signature_decoder = structures.SignatureDecoder(encoded_image)
-# cryptography_handler = structures.CryptographyHandler(private_key, public_key)
-# file_handler = structures.FileHandler()
-# user_interface = structures.UserInterface()
-
-# # Calling methods on the instances
-# image_handler.load_image("image.jpg")
-# image_handler.process_image()
-
-# signature_encoder.encode_signature()
-
-# signature_decoder.decode_signature()
-
-# cryptography_handler.generate_keys()
-# cryptography_handler.encrypt_data()
-
-# file_handler.read_file("data.txt")
-# file_handler.write_file("Hello, World!", "output.txt")
-
-# user_interface.get_signature()
-# user_interface.select_image()
-# user_interface.display_results()
-
 
 def main():
+    '''
+    Driver function to encode or decode a digital signature in an image
+    
+    python3 ./main.py -e tykeson.png
+    python3 ./main.py -d tykeson_signed.png
+
+    python3 ./main.py -e EMU.png
+    pytnon3 ./main.py -d EMU_signed.png
+    
+    '''
+
+    # Check input validity
+    if(len(sys.argv) < 3):
+        print("Error! Input format: main.py -flag filename")
+        return
+
+    # Create argument parser object
+    parser = argparse.ArgumentParser()
+
+    # Define flags
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-e', action='store_true', help='Encode digital signature in image')
+    group.add_argument('-d', action='store_true', help='Decode encrypted message from digital signature')
+
+    # Add positional argument
+    parser.add_argument('image_file', type=str, help='Image file name')
+
+    # Parse command-line arguments
+    args = parser.parse_args()
+
+    # Take image input
+    image_input = sys.argv[2]
+
     # Load image
-    image_handler = ImageHandler("tykeson.jpg")
+    image_handler = ImageHandler(image_input)
     image_handler.load_image()
 
-    # Process image
-    image_handler.process_image()
+    # Encoding flag
+    if args.e:
 
-    # Process signature
-    signature = "5c80a163f47b0435c3c03ea80e736b8ae30d69b5002d2152c52efc1b3c6afb68aceb776cb929134b700d2e60e0c8532dce5cb755f4f8296ed2a18318f2bb93d3fb3043e4825092213e21773a744207c6b48957c01e9c54ae250026376da19f792e7508e58e789346045600197c15a4bef53b21ede07a5d78e0dcc37244120eb85d836bbb9a1279b1da99a24225942f7b33303462343735643161306435656261396663376533643832313037366338626330663333623831336434323937376133646331393032623634393234636338304b475d1a0d5eba9fc7e3d821076c8bc0f33b813d42977a3dc1902b64924cc8"
-    # print(len(signature))
+        # Process signature
+        signature = "5c80a163f47b0435c3c03ea80e736b8ae30d69b5002d2152c52efc1b3c6afb68aceb776cb929134b700d2e60e0c8532dce5cb755f4f8296ed2a18318f2bb93d3fb3043e4825092213e21773a744207c6b48957c01e9c54ae250026376da19f792e7508e58e789346045600197c15a4bef53b21ede07a5d78e0dcc37244120eb85d836bbb9a1279b1da99a24225942f7b33303462343735643161306435656261396663376533643832313037366338626330663333623831336434323937376133646331393032623634393234636338304b475d1a0d5eba9fc7e3d821076c8bc0f33b813d42977a3dc1902b64924cc8"
 
-    # Load encoder
-    encoder = SignatureEncoder(signature, image_handler)
-    encoder.encode_signature()
+        # Load encoder
+        encoder = SignatureEncoder(signature, image_handler)
 
-    # Load decoder
-    mod_image_handler = ImageHandler("modified_image.jpg")
-    mod_image_handler.load_image()
+        # Encode encrypted message as digital signature
+        encoder.encode_signature()
 
-    decoder = SignatureDecoder(mod_image_handler)
-    decoder.decode_signature()
+    # Decoding flag
+    elif args.d:
 
+        # Load decoder
+        decoder = SignatureDecoder(image_handler)
 
-    # Save image
-    # image_handler.save_image("test_processed.jpg")
+        # Decode encrypted message from signature
+        decoder.decode_signature()
 
-    # Display image
-    # image_handler.display_image()
 
 if __name__ == "__main__":
     main()
+
+'''
+TODOLIST
+
+    Connect with front-end
+        Change fixed signature input to be determined by 
+
+'''
