@@ -8,6 +8,8 @@ from authlib.jose import jwt
 from datetime import datetime, timedelta
 from authlib.jose.errors import DecodeError, ExpiredTokenError
 from configparser import ConfigParser
+from ..crypto import generate_msg
+import hashlib
 
 app = Flask(__name__)
 api = Api(app)
@@ -33,13 +35,14 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(64), index=True, unique=True)
+    user_hash = Column(String(64))  
     password_hash = Column(String(128))
 
     def hash_password(self, password):
         self.password_hash = pwd_context.encrypt(password)
-
-    def verify_password(self, password):
-        return pwd_context.verify(password, self.password_hash)
+        
+    def hash_username(self):
+        self.user_hash = hashlib.sha256(self.username.encode('utf-8')).hexdigest()
 
 # create users table if it does not exist
 Base.metadata.create_all(engine)
@@ -80,7 +83,6 @@ def verify_auth_token(encoded_jwt):
         app.logger.debug("***INVALID TOKEN***")
         return None
 
-
 class Register(Resource):
     def post(self):
         password = request.args.get('password', type=str)
@@ -94,7 +96,9 @@ class Register(Resource):
 
         # add new user
         user = User(username=username)
+        
         user.hash_password(password)
+        user.hash_username(username)
         session.add(user)
         session.commit()
         return make_response(jsonify({'message':'Success'}), 201)
@@ -123,21 +127,69 @@ class Token(Resource):
             "token":str(token)
         }
         return make_response(jsonify(response_success), 201)
+    
+""" 
+    resource to create message
+    - key 
+    - user hash
+    - pixel hash
+    
+    return message to client 
+    
+"""
+class GenMessage(Resource):
+    def get(self):
+        auth_header = request.headers.get('Authorization')
+        
+        if auth_header:
+            # extract token from "Bearer <token>" format
+            token = auth_header.split(' ')[1]
+            
+            # verify token
+            payload = verify_auth_token(token)
+            if payload:
+                # token is valid and user is authenticated
+                user_id = payload['user_id']
+                
+                session = Session()
+                user = session.query(User).filter_by(id=user_id).first()
+                
+                byte_length = 16
+                byte_representation = user_id.to_bytes(byte_length, 'big')
+                
+                # retrieve image hash from request arguments
+                img_hash_str = request.args.get('hash', type=str)
+                img_hash_bytes = int(img_hash_str, 16).to_bytes(32, 'big')
+                
+                # convert hashed username to bytes
+                hashed_username = int(user.user_hash, 16).to_bytes(32, 'big')
+                
+                # concat image hash and hashed username
+                cdata = img_hash_bytes + hashed_username
+                
+                # generate the message using byte_representation, cdata, and hashed_username
+                msg = generate_msg(byte_representation, cdata, hashed_username)
+                
+                response_success = {
+                    "response": "Success",
+                    "message": msg
+                }
+                return make_response(jsonify(response_success), 201)
+        
+        return make_response(jsonify({"response":"Failure"}), 400)
+                
         
 
-class UserById(Resource):
-    def get(self, id):
-        session = Session()
-        user = session.query(User).filter_by(id=id).first()
-        if user is not None:
-            claims = {'sub': user.id, 'name': user.username}
-            token = jwt.encode({'alg': 'HS256', 'typ': 'JWT'}, claims, app.config['SECRET_KEY'])
-            return jsonify({'id': user.id, 'username': user.username, 'token': token})
-        return jsonify({'id': "FAILURE"})
+"""
+make some resource to verify message
+    - given a message + hash
+    - cdata + pdata
+interpret_msg
+"""
+        
 
 api.add_resource(Register, '/register')
 api.add_resource(Token, '/token')
-api.add_resource(UserById, '/user/<int:id>')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=True)
