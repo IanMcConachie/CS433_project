@@ -8,6 +8,7 @@ from wtforms import BooleanField, StringField, validators, PasswordField
 import requests
 from passlib.hash import sha256_crypt as pwd_context
 import json
+from ..hash_client import gen_hash
 
 class LoginForm(Form):
     username = StringField('Username', [
@@ -130,8 +131,52 @@ def logout():
 @app.route('/upload')
 @login_required
 def upload():
-    return render_template('upload.html')
+    # We will have an image
+    # stegonograpy
+    # hashing 
+    
+    # 1. hashing based on pixels
+    # 2. send hash to server
+    # 3. server gonna generate message with 
+    #     - cdata = hash + username
+    #     - pdata = username
+    
+    if request.method == 'POST':
+        # check if the 'image' file was uploaded
+        if 'image' in request.files:
+            image_file = request.files['image']
+            
+            img_hash = gen_hash(image_file)
+            
+            # get token from session
+            headers = headers = {'Authorization': f'Bearer {session["token"]}'}
+            msg = requests.get(f'http://restapi:5000/token?hash={img_hash}',
+                               headers=headers).json()
 
+            return 'Image uploaded successfully!'
+        
+        # Return an error message if no 'image' file was uploaded
+        flash("No image file found!")
+        return render_template('upload.html')
+
+@app.route('/verify')
+def verify():
+    """
+    - image with message is uploaded
+    - remove encrypted message
+    - send encrypted message and hash
+    """
+    if request.method == 'POST':
+        # Check if the 'image' file was uploaded
+        if 'image' in request.files:
+            image_file = request.files['image']
+            
+            # Return a response or redirect to another page
+            return 'Image uploaded successfully!'
+        
+        # Return an error message if no 'image' file was uploaded
+        flash("No image file found!")
+        return render_template('verify.html')
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0')
