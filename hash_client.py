@@ -55,6 +55,7 @@ def hash_num(pix_num):
 	hash_val = h_algo.digest()
 	return hash_val
 
+
 def gen_hash(img):
 	"""
 	:inputs:    img       [str]
@@ -67,10 +68,11 @@ def gen_hash(img):
 	hash_val = hash_num(pix_num)
 	return hash_val
 
+
 ## Main Function
 
 def main():
-	print(gen_hash(test_img))
+	print(gen_hash(test_img).hex())
 	return None
 
 if __name__ == '__main__':
