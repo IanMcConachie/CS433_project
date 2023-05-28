@@ -9,7 +9,6 @@ import requests
 from passlib.hash import sha256_crypt as pwd_context
 import json
 
-
 class LoginForm(Form):
     username = StringField('Username', [
         validators.Length(min=2, max=25,
@@ -31,7 +30,6 @@ class RegistrationForm(Form):
         validators.InputRequired(u"Forget something?"), 
         validators.EqualTo('verification', message='Passwords must match')])
     verification = PasswordField("Verify Password")
-    
 
 def is_safe_url(target):
     """
@@ -40,7 +38,6 @@ def is_safe_url(target):
     ref_url = urlparse(request.host_url)
     test_url = urlparse(urljoin(request.host_url, target))
     return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc
-
 
 class User(UserMixin):
     def __init__(self, id, name):
@@ -52,8 +49,6 @@ class User(UserMixin):
     def set_token(self, token):
         self.token = token
         return self
-
-
 
 app = Flask(__name__)
 app.secret_key = "and the cats in the cradle and the silver spoon"
@@ -77,16 +72,13 @@ login_manager.needs_refresh_message_category = "info"
 def load_user(user_id):
     return User(user_id, session['username']).set_token(session['token'])
 
-
 login_manager.init_app(app)
-
 
 @app.route("/")
 @app.route("/index")
 def index():
     return render_template("index.html")
 
-###
 @app.route("/register", methods=["GET", "POST"])
 def register():
     form = RegistrationForm()
@@ -100,51 +92,6 @@ def register():
             return redirect(url_for('login'))
         flash(u"User already exists in the database! Try picking a more unique username")
     return render_template("register.html", form=form)
-
-@app.route("/secret")
-@login_required
-def secret():
-    return render_template('secret.html')
-
-@app.route('/everything')
-@login_required
-def everything():
-    token = current_user.token
-    k = request.args.get("k", type=int) or -1
-    csv = request.args.get("csv", type=str)
-    app.logger.debug("k = {}".format(k))
-    app.logger.debug("csv= {}".format(csv))
-    if csv == None:
-        r = requests.get(f'http://restapi:5000/listAll?top={k}&token={token}')
-    else:
-        r = requests.get(f'http://restapi:5000/listAll/csv?top={k}&token={token}')
-    return r.text
-
-@app.route('/open')
-@login_required
-def open():
-    token = current_user.token
-    k = request.args.get("k", type=int) or -1
-    csv = request.args.get("csv", type=str)
-    if csv == None:
-        r = requests.get(f'http://restapi:5000/listOpenOnly?top={k}&token={token}')
-    else:
-        r = requests.get(f'http://restapi:5000/listOpenOnly/csv?top={k}&token={token}')
-    return r.text
-
-@app.route('/close')
-@login_required
-def close():
-    token = current_user.token
-    k = request.args.get("k", type=int) or -1
-    csv = request.args.get("csv", type=str)
-    if csv == None:
-        r = requests.get(f'http://restapi:5000/listCloseOnly?top={k}&token={token}')
-    else:
-        r = requests.get(f'http://restapi:5000/listCloseOnly/csv?top={k}&token={token}')
-    return r.text
-
-###
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -172,7 +119,6 @@ def login():
         else:
             flash(u"Invalid username or password.")
     return render_template("login.html", form=form)
-
 
 @app.route("/logout")
 @login_required

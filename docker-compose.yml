@@ -3,7 +3,7 @@ version: '3'
 services:
     restapi:
         build: server/
-        command: python -u api.py
+        command: python -u app.py
         ports:
             - "5001:5000"
     website:
