@@ -94,11 +94,12 @@ def split_msg(msg):
 	            p_data     [string]
 	            watermark  [string]
 
-	This is a relatively simple function that splits 
+	This is a relatively simple function that splits a message into its
+	component parts so it can be analyzed.
 	"""
 	c_text = msg[0:256]      # The first 256 chars are ciphertext
 	p_data = msg[256:384]    # The next 128 chars are plaintext 
-	watermark = msg[384:512] # The last 128 chars are the constant
+	watermark = msg[384:448] # The last 128 chars are the constant
 	return c_text, p_data, watermark
 
 
@@ -133,6 +134,7 @@ def interpret_msg(msg):
 
 	cipher = AES_setup(key)
 	c_text, p_text, watermark = split_msg(msg)
+
 	ct_to_pt = AES_decrypt(c_text, cipher)
 	hash_val = bytes.fromhex(ct_to_pt[0:128])
 	pt_dcryp = ct_to_pt[128:]
