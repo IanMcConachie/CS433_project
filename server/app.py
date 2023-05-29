@@ -8,7 +8,7 @@ from authlib.jose import jwt
 from datetime import datetime, timedelta
 from authlib.jose.errors import DecodeError, ExpiredTokenError
 from configparser import ConfigParser
-from ..crypto import generate_msg
+from crypto import generate_msg
 import hashlib
 
 app = Flask(__name__)
@@ -35,14 +35,20 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(64), index=True, unique=True)
-    user_hash = Column(String(64))  
+    user_hash = Column(String(128))  
     password_hash = Column(String(128))
 
     def hash_password(self, password):
         self.password_hash = pwd_context.encrypt(password)
         
-    def hash_username(self):
-        self.user_hash = hashlib.sha256(self.username.encode('utf-8')).hexdigest()
+    def hash_username(self, username):
+        app.logger.debug(f"USERNAME HASH CALLED")
+        self.user_hash = hashlib.sha256(username.encode('utf-8')).hexdigest()
+        app.logger.debug(f"***User Hash={self.user_hash}***")
+        
+    def verify_password(self, password):
+        return pwd_context.verify(password, self.password_hash)
+        
 
 # create users table if it does not exist
 Base.metadata.create_all(engine)
@@ -87,18 +93,22 @@ class Register(Resource):
     def post(self):
         password = request.args.get('password', type=str)
         username = request.args.get('username', type=str)
-
+        app.logger.debug(f"username={username}")
+        app.logger.debug(f"pw hash = {password}")
         # check if username is taken
         session = Session()
         user = session.query(User).filter_by(username=username).first()
+        app.logger.debug(f"is none = {user is None}")
         if user is not None:
             return make_response(jsonify({'message':'Failure'}), 400)
 
         # add new user
         user = User(username=username)
-        
+        app.logger.debug(f"user created = {user.username}")
         user.hash_password(password)
+        app.logger.debug(f"password set = {user.password_hash}")
         user.hash_username(username)
+        app.logger.debug(f"user hash = {user.user_hash}")
         session.add(user)
         session.commit()
         return make_response(jsonify({'message':'Success'}), 201)
@@ -115,8 +125,10 @@ class Token(Resource):
         session = Session()
         user = session.query(User).filter_by(username=username).first()
         if user is None or not user.verify_password(password):
-            return {'response':'Failure'}, 401
+            app.logger.debug("***Log in failed***")
+            return make_response(jsonify({'response':'Failure'}), 401)
         
+        app.logger.debug("***Log in success***")
         app.logger.debug(f"***User found = {user.id}***")
         # generate and return token
         token = generate_auth_token({'user_id': user.id})
@@ -190,6 +202,7 @@ interpret_msg
 
 api.add_resource(Register, '/register')
 api.add_resource(Token, '/token')
+api.add_resource(GenMessage, '/genmessage')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=True)

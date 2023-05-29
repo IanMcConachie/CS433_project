@@ -8,7 +8,9 @@ from wtforms import BooleanField, StringField, validators, PasswordField
 import requests
 from passlib.hash import sha256_crypt as pwd_context
 import json
-from ..hash_client import gen_hash
+from hash_client import gen_hash
+from stegano import lsb
+import base64
 
 class LoginForm(Form):
     username = StringField('Username', [
@@ -150,10 +152,15 @@ def upload():
             
             # get token from session
             headers = headers = {'Authorization': f'Bearer {session["token"]}'}
-            msg = requests.get(f'http://restapi:5000/token?hash={img_hash}',
+            msg = requests.get(f'http://restapi:5000/genmessage?hash={img_hash}',
                                headers=headers).json()
+            
+            encrypted_message_b64 = base64.b64encode(msg)
+            
+            image = lsb.hide(image_file, encrypted_message_b64.decode())
+            image_base64 = base64.b64encode(image).decode('utf-8')
 
-            return 'Image uploaded successfully!'
+            return render_template('image.html', image=image_base64)
         
         # Return an error message if no 'image' file was uploaded
         flash("No image file found!")
@@ -167,11 +174,11 @@ def verify():
     - send encrypted message and hash
     """
     if request.method == 'POST':
-        # Check if the 'image' file was uploaded
+        # check if the 'image' file was uploaded
         if 'image' in request.files:
             image_file = request.files['image']
+            img_hash = gen_hash(image_file)
             
-            # Return a response or redirect to another page
             return 'Image uploaded successfully!'
         
         # Return an error message if no 'image' file was uploaded

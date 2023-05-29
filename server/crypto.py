@@ -71,6 +71,7 @@ def generate_msg(key, c_data, p_data):
 	"""
 	:inputs:	key     [bytes]
 	            c_data  [bytes]
+                  - binary(hash) + binary(username)
 	            p_data  [bytes]
 	:returns:   msg     [str]
 
@@ -122,7 +123,7 @@ def interpret_msg(msg):
 	"""
 	:inputs:    msg        [string]
 	:returns:	is_steg    [bool]
-	            user_id    [bytes]
+	            hash_val   [bytes]
 	            pt_match   [bool]
 
 	This function takes in a full msg from an image and interprets it in all
