@@ -8,8 +8,9 @@ from authlib.jose import jwt
 from datetime import datetime, timedelta
 from authlib.jose.errors import DecodeError, ExpiredTokenError
 from configparser import ConfigParser
-from crypto import generate_msg
+from crypto import generate_msg, interpret_msg
 import hashlib
+import base64
 
 app = Flask(__name__)
 api = Api(app)
@@ -35,7 +36,7 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(64), index=True, unique=True)
-    user_hash = Column(String(128))  
+    user_hash = Column(String(128), index=True)  
     password_hash = Column(String(128))
 
     def hash_password(self, password):
@@ -54,39 +55,44 @@ class User(Base):
 Base.metadata.create_all(engine)
 
 # define secret key for token generation
-SECRET_KEY = 'test1234@#$'
+jwk = {
+  "crv": "P-256",
+  "kty": "EC",
+  "alg": "ES256",
+  "use": "sig",
+  "kid": "a32fdd4b146677719ab2372861bded89",
+  "d": "5nYhggWQzfPFMkXb7cX2Qv-Kwpyxot1KFwUJeHsLG_o",
+  "x": "-uTmTQCbfm2jcQjwEa4cO7cunz5xmWZWIlzHZODEbwk",
+  "y": "MwetqNLq70yDUnw-QxirIYqrL-Bpyfh4Z0vWVs_hWCM"
+}
 
 def generate_auth_token(payload, expires_in_minutes=60):
     """
     Generate a JWT with the given payload and expiration time.
-    :param payload: The payload to include in the JWT.
-    :param expires_in_minutes: The number of minutes until the JWT should expire.
-    :return: The encoded JWT.
+    
+    SOURCE: https://www.scottbrady91.com/python/authlib-python-jwt
     """
     now = datetime.utcnow()
     payload['exp'] = now + timedelta(minutes=expires_in_minutes)
     payload['iat'] = now
 
-    header = {'alg': 'HS256'}
-    token = jwt.encode(header, payload, SECRET_KEY)
-    app.logger.debug(f"***TOKEN = {token}***")
-    return token
+    header = {"alg": "ES256"}
+    token = jwt.encode(header, payload, jwk)
+    return base64.b64encode(token).decode('utf-8')
     
 def verify_auth_token(encoded_jwt):
     """
     Verify a JWT and return the payload if valid.
-    :param encoded_jwt: The encoded JWT to verify.
-    :return: The payload contained in the JWT if the JWT is valid.
-    :raises DecodeError: If the JWT is invalid.
+
+    SOURCE: https://www.scottbrady91.com/python/authlib-python-jwt
     """
+    encoded_jwt = base64.b64decode(encoded_jwt)
     try:
-        header, payload = jwt.decode(encoded_jwt, SECRET_KEY, algorithms=['HS256'])
+        payload = jwt.decode(encoded_jwt, jwk)
         return payload
     except DecodeError:
-        app.logger.debug("***INVALID TOKEN***")
         return None
     except ExpiredTokenError:
-        app.logger.debug("***INVALID TOKEN***")
         return None
 
 class Register(Resource):
@@ -151,42 +157,53 @@ class Token(Resource):
 """
 class GenMessage(Resource):
     def get(self):
+        app.logger.debug("Top")
         auth_header = request.headers.get('Authorization')
-        
+        app.logger.debug("line 156")
         if auth_header:
+            app.logger.debug("line 158")
             # extract token from "Bearer <token>" format
             token = auth_header.split(' ')[1]
             
             # verify token
             payload = verify_auth_token(token)
             if payload:
-                # token is valid and user is authenticated
-                user_id = payload['user_id']
+                expiration_time = datetime.utcfromtimestamp(payload['exp'])
                 
-                session = Session()
-                user = session.query(User).filter_by(id=user_id).first()
-                
-                byte_length = 16
-                byte_representation = user_id.to_bytes(byte_length, 'big')
-                
-                # retrieve image hash from request arguments
-                img_hash_str = request.args.get('hash', type=str)
-                img_hash_bytes = int(img_hash_str, 16).to_bytes(32, 'big')
-                
-                # convert hashed username to bytes
-                hashed_username = int(user.user_hash, 16).to_bytes(32, 'big')
-                
-                # concat image hash and hashed username
-                cdata = img_hash_bytes + hashed_username
-                
-                # generate the message using byte_representation, cdata, and hashed_username
-                msg = generate_msg(byte_representation, cdata, hashed_username)
-                
-                response_success = {
-                    "response": "Success",
-                    "message": msg
-                }
-                return make_response(jsonify(response_success), 201)
+                # make sure token not expired
+                if expiration_time > datetime.utcnow():
+                    app.logger.debug("line 165")
+                    
+                    # token is valid and user is authenticated
+                    user_id = payload['user_id']
+                    app.logger.debug(f"USER ID = {user_id}")
+                    
+                    session = Session()
+                    user = session.query(User).filter_by(id=user_id).first()
+                    byte_length = 16
+                    byte_representation = int(str(user_id), 16).to_bytes(byte_length, 'big')
+                    app.logger.debug("line 168")
+                    # retrieve image hash from request arguments
+                    img_hash_str = request.args.get('hash', type=str)
+                    app.logger.debug("line 169")
+                    img_hash_bytes = int(img_hash_str, 16).to_bytes(32, 'big')
+                    
+                    # convert hashed username to bytes
+                    app.logger.debug("line 180")
+                    hashed_username = int(user.user_hash, 16).to_bytes(32, 'big')
+                    
+                    # concat image hash and hashed username
+                    cdata = img_hash_bytes + hashed_username
+                    
+                    # generate the message using byte_representation, cdata, and hashed_username
+                    app.logger.debug("line 187")
+                    msg = generate_msg(byte_representation, cdata, hashed_username)
+                    
+                    response_success = {
+                        "response": "Success",
+                        "message": msg
+                    }
+                    return make_response(jsonify(response_success), 201)
         
         return make_response(jsonify({"response":"Failure"}), 400)
                 
@@ -198,11 +215,41 @@ make some resource to verify message
     - cdata + pdata
 interpret_msg
 """
+class VerifyMessage(Resource):
+    def get(self):
+        payload = request.form  # access payload
+        img_hash = payload.get("image_hash")  
+        message = payload.get("message") 
+        
+        user_hash = message[256:384]
+        
+        # get user from user hash
+        session = Session()
+        user = session.query(User).filter_by(user_hash=user_hash).first()
+        
+        # does hash match a user?
+        if user is None:
+            return make_response(jsonify({'response':'Failure'}), 401)
+        
+        is_steg, hash_val, pt_match = interpret_msg(message, user.user_id)
+        
+        # valid message or no?
+        # should the hash_val variable be just the image hash?
+        if (is_steg and pt_match) and (hash_val.hex() == img_hash):
+            response_success = {
+                        "response": "Success",
+                        "owner": user.username
+                    }
+            return make_response(jsonify(response_success), 201)
+        else:
+            return make_response(jsonify({'response':'Failure'}), 401)
+        
         
 
 api.add_resource(Register, '/register')
 api.add_resource(Token, '/token')
 api.add_resource(GenMessage, '/genmessage')
+api.add_resource(VerifyMessage, '/verifymessage')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=True)

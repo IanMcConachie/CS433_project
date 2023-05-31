@@ -11,6 +11,7 @@ import json
 from hash_client import gen_hash
 from stegano import lsb
 import base64
+import os
 
 class LoginForm(Form):
     username = StringField('Username', [
@@ -130,7 +131,7 @@ def logout():
     flash("Logged out.")
     return redirect(url_for("index"))
 
-@app.route('/upload')
+@app.route('/upload', methods=['GET', 'POST'])
 @login_required
 def upload():
     # We will have an image
@@ -146,27 +147,38 @@ def upload():
     if request.method == 'POST':
         # check if the 'image' file was uploaded
         if 'image' in request.files:
+            save_path = 'images/'
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+
             image_file = request.files['image']
+            img_path = os.path.join(save_path, "plain.png")
+            image_file.save(img_path)
             
             img_hash = gen_hash(image_file)
             
             # get token from session
             headers = headers = {'Authorization': f'Bearer {session["token"]}'}
-            msg = requests.get(f'http://restapi:5000/genmessage?hash={img_hash}',
+            response = requests.get(f'http://restapi:5000/genmessage?hash={img_hash}',
                                headers=headers).json()
             
+            # convert to bytes string then to base 64 encoding
+            msg = bytes.fromhex(response["message"])
             encrypted_message_b64 = base64.b64encode(msg)
             
-            image = lsb.hide(image_file, encrypted_message_b64.decode())
-            image_base64 = base64.b64encode(image).decode('utf-8')
+            encrypted_image = lsb.hide(img_path, encrypted_message_b64.decode())
+            encrypted_img_path = os.path.join(save_path, "encrypted.png")
+            encrypted_image.save(encrypted_img_path)
+            # image_base64 = base64.b64encode(image).decode('utf-8')
 
-            return render_template('image.html', image=image_base64)
+            return render_template('image.html')
         
         # Return an error message if no 'image' file was uploaded
         flash("No image file found!")
-        return render_template('upload.html')
+    return render_template('upload.html')
 
-@app.route('/verify')
+@app.route('/verify', methods=['GET', 'POST'])
+@login_required
 def verify():
     """
     - image with message is uploaded
@@ -177,13 +189,44 @@ def verify():
         # check if the 'image' file was uploaded
         if 'image' in request.files:
             image_file = request.files['image']
-            img_hash = gen_hash(image_file)
+            save_path = 'images/'
+            if not os.path.exists(save_path):
+                os.makedirs(save_path)
+
+            image_file = request.files['image']
+            img_path = os.path.join(save_path, image_file.filename)
+            image_file.save(img_path)
             
-            return 'Image uploaded successfully!'
+            img_hash = gen_hash(img_path)
+            
+            # load image with hidden message
+            try:
+                image_with_hidden_message = lsb.reveal(img_path)
+                
+                
+                # decode encrypted message from base64
+                encrypted_message_decoded = base64.b64decode(image_with_hidden_message.encode())
+                
+                payload = {
+                    "image_hash": img_hash,
+                    "message": encrypted_message_decoded
+                }
+                response = requests.get(f'http://restapi:5000/verifymessage',
+                        payload=payload).json()
+                
+                if response['message'] == 'Success':
+                    owner = response['owner']
+                    flash(f"The owner of this image is {owner}")
+                else:
+                    flash("No owner found for this image")
+                return render_template('verify.html')
+            except:
+                flash("No message detected in image!")
+                return render_template('upload.html')
         
         # Return an error message if no 'image' file was uploaded
         flash("No image file found!")
-        return render_template('verify.html')
+    return render_template('verify.html')
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0')

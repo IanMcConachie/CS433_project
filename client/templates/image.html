@@ -5,8 +5,7 @@
 
 {% block content %}
     <h1>Image Download Page</h1>
-    
-    <img src="data:image/jpeg;base64,{{ image }}" alt="Image">
-
-    <a href="data:image/jpeg;base64,{{ image }}" download>Download Image</a>
+    <img src="images/plain.png" alt="Image description">
+    <img src="images/encrypted.png" alt="Image description">
+    <a href="images/encrypted.png" download>Download Image</a>
 {% endblock %}
