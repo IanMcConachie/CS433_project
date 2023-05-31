@@ -217,6 +217,7 @@ interpret_msg
 """
 class VerifyMessage(Resource):
     def get(self):
+        app.logger.debug("line 220")
         payload = request.form  # access payload
         img_hash = payload.get("image_hash")  
         message = payload.get("message") 
@@ -225,14 +226,15 @@ class VerifyMessage(Resource):
         
         # get user from user hash
         session = Session()
+        app.logger.debug("line 229")
         user = session.query(User).filter_by(user_hash=user_hash).first()
-        
+        app.logger.debug("line 231")
         # does hash match a user?
         if user is None:
             return make_response(jsonify({'response':'Failure'}), 401)
-        
+        app.logger.debug("line 187")
         is_steg, hash_val, pt_match = interpret_msg(message, user.user_id)
-        
+        app.logger.debug("line 237")
         # valid message or no?
         # should the hash_val variable be just the image hash?
         if (is_steg and pt_match) and (hash_val.hex() == img_hash):
