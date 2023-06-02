@@ -14,46 +14,76 @@ import base64
 import os
 
 class LoginForm(Form):
+    """Form for user login."""
+    # for entering the username
     username = StringField('Username', [
-        validators.Length(min=2, max=25,
-                          message=u"Huh? Little too short for a username."),
+        validators.Length(min=2, max=25, message=u"Huh? Little too short for a username."),
         validators.InputRequired(u"Forget something?")])
+    
+    # for entering the password
     password = PasswordField("Password", [
         validators.Length(min=2, max=25, message=u"Huh? Little too short for a password."),
         validators.InputRequired(u"Forget something?")])
+    # for allowing users to choose whether to remember their login session
     remember = BooleanField('Remember me')
 
+
 class RegistrationForm(Form):
+    """Form for user registration."""
+    
+    # for entering the username
     username = StringField('Username', [
         validators.Length(min=2, max=25,
                           message=u"Huh, little too short for a username."),
         validators.InputRequired(u"Forget something?")])
+    
+    # for allowing users to choose whether to remember their registration
     remember = BooleanField('Remember me')
+    
+    # for entering the password
     password = PasswordField("Password", [
         validators.Length(min=2, max=25, message=u"Huh? Little too short for a password."),
         validators.InputRequired(u"Forget something?"), 
         validators.EqualTo('verification', message='Passwords must match')])
+    
+    # for verifying the password
     verification = PasswordField("Verify Password")
+
 
 def is_safe_url(target):
     """
+    Check if a target URL is safe by comparing its scheme and netloc with the referrer URL.
+
+    Args:
+        target (str): The target URL to be checked.
+
+    Returns:
+        bool: True if the target URL is safe, False otherwise.
+
     :source: https://github.com/fengsp/flask-snippets/blob/master/security/redirect_back.py
     """
     ref_url = urlparse(request.host_url)
     test_url = urlparse(urljoin(request.host_url, target))
     return test_url.scheme in ('http', 'https') and ref_url.netloc == test_url.netloc
 
+
 class User(UserMixin):
     def __init__(self, id, name):
+        """
+        initialize User object with the specified ID and name
+        """
         self.id = id
         self.name = name
         self.token = ''
 
-    # set token method?
     def set_token(self, token):
+        """
+        Set the authentication token for the user
+        """
         self.token = token
         return self
 
+# set secret key for session encryption 
 app = Flask(__name__)
 app.secret_key = "and the cats in the cradle and the silver spoon"
 
@@ -61,59 +91,108 @@ app.config.from_object(__name__)
 
 login_manager = LoginManager()
 
+# set session protection to "strong" 
 login_manager.session_protection = "strong"
 
+# specify view function to handle login requests
 login_manager.login_view = "login"
+
+# set login message to be displayed when a user needs to log in to access a protected page
 login_manager.login_message = u"Please log in to access this page."
 
+# specify view function to handle reauthentication requests.
 login_manager.refresh_view = "login"
+
+# set message to be displayed when user needs to reauthenticate to access a protected page
 login_manager.needs_refresh_message = (
     u"To protect your account, please reauthenticate to access this page."
 )
+
+
+# specify category of needs_refresh_message for styling or categorization
 login_manager.needs_refresh_message_category = "info"
+
+
 
 @login_manager.user_loader
 def load_user(user_id):
+    """
+    load user object based on user ID.
+    """
     return User(user_id, session['username']).set_token(session['token'])
+
+
+login_manager.init_app(app)
 
 login_manager.init_app(app)
 
 @app.route("/")
 @app.route("/index")
 def index():
+    """render index.html template for the homepage"""
     return render_template("index.html")
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    """handle registration form submission and process registration request"""
     form = RegistrationForm()
+
     if form.validate_on_submit():
+        # retrieve entered username and password from the form
         username = request.form["username"]
         password = request.form["password"]
-        password = pwd_context.using(rounds=1122,salt='123hello').encrypt(password)
+
+        # encrypt password using specified rounds and salt
+        password = pwd_context.using(rounds=1122, salt='123hello').encrypt(password)
+
+        # send registration request to server with username and encrypted password
         u = requests.post(f'http://restapi:5000/register?username={username}&password={password}').json()
+
         if u['message'] == 'Success':
+            # display success message and redirect to login page
             flash(u"Success! Now try logging in")
             return redirect(url_for('login'))
+
+        # display error message if user already exists in the database
         flash(u"User already exists in the database! Try picking a more unique username")
+
+    # render registration form template with form object
     return render_template("register.html", form=form)
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    """handle the login form submission and process the login request"""
     form = LoginForm()
+
     if form.validate_on_submit() and request.method == "POST" and "username" in request.form:
+        # retrieve entered username and password from form
         username = request.form["username"]
         password = request.form["password"]
-        password = pwd_context.using(rounds=1122,salt='123hello').encrypt(password)
+
+        # encrypt password using the specified rounds and salt
+        password = pwd_context.using(rounds=1122, salt='123hello').encrypt(password)
+
+        # send token request to the server with the username and encrypted password
         token = requests.get(f'http://restapi:5000/token?username={username}&password={password}').json()
+
         app.logger.debug(f'RESPONSE***  {token}')
-        if not token['response']=='Failure':  # pwd_context.verify(password, hashed)
+
+        if not token['response'] == 'Failure':  # pwd_context.verify(password, hashed)
+            # retrieve the remember option from the form
             remember = request.form.get("remember", "false") == "true"
+
+            # store token and username in the session
             session["token"] = token['token']
-            session["username"] = username 
+            session["username"] = username
+
+            # create a User object with the token and username
             user = User(token['id'], session['username']).set_token(session['token'])
+
             if login_user(user, remember=remember):
+                # display success message and redirect to the next page or index
                 flash("Logged in!")
                 flash("I'll remember you") if remember else None
+
                 next = request.args.get("next")
                 if not is_safe_url(next):
                     abort(400)
@@ -122,14 +201,21 @@ def login():
                 flash("Sorry, but you could not log in.")
         else:
             flash(u"Invalid username or password.")
+
+    # render the login form template with the form object
     return render_template("login.html", form=form)
+
 
 @app.route("/logout")
 @login_required
 def logout():
+    """handle logout request and log out user"""
     logout_user()
+
+    # display success message and redirect to the index page
     flash("Logged out.")
     return redirect(url_for("index"))
+
 
 @app.route('/upload', methods=['GET', 'POST'])
 @login_required

@@ -248,10 +248,11 @@ class VerifyMessage(Resource):
         
         
 
-api.add_resource(Register, '/register')
-api.add_resource(Token, '/token')
-api.add_resource(GenMessage, '/genmessage')
-api.add_resource(VerifyMessage, '/verifymessage')
+api.add_resource(Register, '/register')  # endpoint for user registration
+api.add_resource(Token, '/token')  # endpoint for retrieving authentication token
+api.add_resource(GenMessage, '/genmessage')  # endpoint for generating a message
+api.add_resource(VerifyMessage, '/verifymessage')  # endpoint for verifying a message
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', debug=True)
