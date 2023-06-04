@@ -33,7 +33,7 @@ def upload():
     if request.method == 'POST':
         # check if the 'image' file was uploaded
         if 'image' in request.files:
-            save_path = '/static/images/'
+            save_path = './static/images/'
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
 
@@ -67,8 +67,7 @@ def upload():
             msg = generate_msg(byte_representation, cdata, hashed_username)
             # ====================================================
             
-            
-            encrypted_message_b64 = base64.b64encode(msg)
+            encrypted_message_b64 = base64.b64encode(bytes.fromhex(msg))
             app.logger.debug(f"MESSAGE BEING EMBEDDED: {encrypted_message_b64}")
             
             # embed message
@@ -78,9 +77,8 @@ def upload():
             encrypted_img_path = os.path.join(save_path, "encrypted.png")
             encrypted_image.save(encrypted_img_path)
             app.logger.debug(f"IMAGE PATH = {encrypted_img_path}")
-            # image_base64 = base64.b64encode(image).decode('utf-8')
-            image_url = url_for('static', filename="encrypted.png")
-            return render_template('image.html', image_url=image_url)
+
+            return render_template('image.html', image_url=encrypted_img_path)
         
         # Return an error message if no 'image' file was uploaded
         flash("No image file found!")
