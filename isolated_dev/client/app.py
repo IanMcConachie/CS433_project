@@ -115,19 +115,38 @@ def verify():
                 # decode encrypted message from base64
                 encrypted_message_decoded = base64.b64decode(image_with_hidden_message.encode())
                 
+                # Everything in below section would happen on server side 
+                #=======================================================
+                
                 payload = {
                     "image_hash": img_hash,
                     "message": encrypted_message_decoded
                 }
                 app.logger.debug("line 216")
-                response = requests.get(f'http://restapi:5000/verifymessage',
-                        payload=payload).json()
-                app.logger.debug("line 219")
-                if response['message'] == 'Success':
-                    owner = response['owner']
-                    flash(f"The owner of this image is {owner}")
+                
+                user_hash = encrypted_message_decoded[256:384]
+                # simulates database, key == user hash, val== user_id
+                simulated_db = {
+                    "b54a95127a4b573f41e335fdbd339dcc2208fbfb1ae0b6fab7599d6e2d6ec754": 2,
+                    "ffebf91de904ea7b8b5a827143ea1b0ac5e1963893a7a1640f546762b7cb290a": 1
+                    }
+                
+                if user_hash in simulated_db:
+                    user_id = simulated_db[user_hash]
                 else:
-                    flash("No owner found for this image")
+                    flash("epic fail")
+                    return render_template('verify.html')
+                is_steg, hash_val, pt_match = interpret_msg(encrypted_message_decoded, user_id)
+                
+                # check if valid
+                if (is_steg and pt_match) and (hash_val.hex() == img_hash):
+                    pass
+                else:
+                    flash("epic fail")
+                    return render_template('verify.html') 
+                #=========================================================
+                
+                flash(f"user_id = {user_id}")
                 return render_template('verify.html')
             except:
                 flash("No message detected in image!")
