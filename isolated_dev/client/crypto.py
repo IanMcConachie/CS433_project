@@ -1,7 +1,7 @@
 """
 Author:             Ian McConachie
 Date Created:       05.04.2023
-Last Date Modified:	05.28.2023
+Last Date Modified:	06.06.2023
 
 This file defines the functions necessary for the cryptographic component of
 Stegosaurus. See cryptography.md in the docs folder for more detail.
@@ -19,6 +19,8 @@ cons_wm = '304b475d1a0d5eba9fc7e3d821076c8bc0f33b813d42977a3dc1902b64924cc8'
 ## Import Statements
 
 from Crypto.Cipher import AES
+from stegano import lsb
+import base64
 
 
 ## Encryption Functions
@@ -54,8 +56,8 @@ def AES_encrypt(cipher, data):
 def Assemble_msg(cipher, c_data, p_data):
 	"""
 	:inputs:    cipher  [AES obj]
-				c_data  [bytes]
-				p_data  [bytes]
+	            c_data  [bytes]
+	            p_data  [bytes]
 	:returns:   msg     [str]
 
 	This function takes in the data you want to encypt (c_data), the data you
@@ -63,8 +65,6 @@ def Assemble_msg(cipher, c_data, p_data):
 	it generates a message to be embedded into an image using steganography.
 	"""
 	c_text = AES_encrypt(cipher, c_data)
-	print("CRYPTO")
-	print(len(c_text))
 	p_data = p_data.hex()
 	msg = c_text + p_data + cons_wm
 	return msg
@@ -100,9 +100,9 @@ def split_msg(msg):
 	This is a relatively simple function that splits a message into its
 	component parts so it can be analyzed.
 	"""
-	c_text = msg[0:256]      # The first 256 chars are ciphertext
-	p_data = msg[256:384]    # The next 128 chars are plaintext 
-	watermark = msg[384:448] # The last 128 chars are the constant
+	c_text = msg[0:128]      # The first 256 chars are ciphertext
+	p_data = msg[128:192]    # The next 128 chars are plaintext 
+	watermark = msg[192:256] # The last 128 chars are the constant
 	return c_text, p_data, watermark
 
 
@@ -136,11 +136,12 @@ def interpret_msg(msg, key):
 	pt_match = False
 
 	cipher = AES_setup(key)
+	#print(len(msg))
 	c_text, p_text, watermark = split_msg(msg)
 
 	ct_to_pt = AES_decrypt(c_text, cipher)
-	hash_val = bytes.fromhex(ct_to_pt[0:128])
-	pt_dcryp = ct_to_pt[128:]
+	hash_val = bytes.fromhex(ct_to_pt[0:64])
+	pt_dcryp = ct_to_pt[64:]
 
 
 	# Check to see if the constant watermark is there
@@ -156,17 +157,22 @@ def interpret_msg(msg, key):
 ## Main Function
 
 def main():
-	c_data = b'304b475d1a0d5eba9fc7e3d821076c8bc0f33b813d42977a3dc1902b64924cc8304b475d1a0d5eba9fc7e3d821076c8bc0f33b813d42977a3dc1902b64924cc8'
-	p_data = b'304b475d1a0d5eba9fc7e3d821076c8bc0f33b813d42977a3dc1902b64924cc8'
-	msg = generate_msg(key, c_data, p_data)
-	print(msg)
-	is_steg, hash_val, pt_match = interpret_msg(msg, key)
+	user_hash = "ffebf91de904ea7b8b5a827143ea1b0ac5e1963893a7a1640f546762b7cb290a"
+	hashed_username = int(user_hash, 16).to_bytes(32, 'big')
+	user_id = 1
+	byte_length = 16
+	byte_representation = int(str(user_id), 16).to_bytes(byte_length, 'big')
+
+	img_path = "encrypted(1).png"
+	hidden_msg = lsb.reveal(img_path)
+	encrypted_message_decoded = base64.b64decode(hidden_msg.encode())
+	our_msg = encrypted_message_decoded.hex()
+	#print(our_msg)
+	ret = interpret_msg(our_msg, byte_representation)
+	#print(ret)
+
 	
-	print("\nConstant watermark recovered successfully? \t", is_steg)
-	print("Decrypted data match original text? \t\t", pt_match)
-	print("\nClaimed user id:\n\t", hash_val, "\n")
-	
-	return msg
+	return None
 
 
 if __name__ == '__main__':
