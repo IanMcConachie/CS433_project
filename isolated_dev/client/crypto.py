@@ -54,8 +54,8 @@ def AES_encrypt(cipher, data):
 def Assemble_msg(cipher, c_data, p_data):
 	"""
 	:inputs:    cipher  [AES obj]
-	            c_data  [bytes]
-	            p_data  [bytes]
+				c_data  [bytes]
+				p_data  [bytes]
 	:returns:   msg     [str]
 
 	This function takes in the data you want to encypt (c_data), the data you
@@ -63,6 +63,8 @@ def Assemble_msg(cipher, c_data, p_data):
 	it generates a message to be embedded into an image using steganography.
 	"""
 	c_text = AES_encrypt(cipher, c_data)
+	print("CRYPTO")
+	print(len(c_text))
 	p_data = p_data.hex()
 	msg = c_text + p_data + cons_wm
 	return msg
