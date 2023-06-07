@@ -207,8 +207,6 @@ class GenMessage(Resource):
         
         return make_response(jsonify({"response":"Failure"}), 400)
                 
-        
-
 """
 make some resource to verify message
     - given a message + hash
@@ -218,28 +216,39 @@ interpret_msg
 class VerifyMessage(Resource):
     def get(self):
         app.logger.debug("line 220")
-        payload = request.form  # access payload
-        img_hash = payload.get("image_hash")  
-        message = payload.get("message") 
+        img_hash = request.args.get('image_hash')
+        message = request.args.get('message')
         
-        user_hash = message[256:384]
+        print(message)
+        print(img_hash)
+        
+        # extract hash from message
+        user_hash = message[128:192]
         
         # get user from user hash
         session = Session()
         app.logger.debug("line 229")
+        
+        # get user
         user = session.query(User).filter_by(user_hash=user_hash).first()
         app.logger.debug("line 231")
         # does hash match a user?
         if user is None:
             return make_response(jsonify({'response':'Failure'}), 401)
         app.logger.debug("line 187")
-        is_steg, hash_val, pt_match = interpret_msg(message, user.user_id)
+        
+        # 16 byte repr of user_id for key
+        byte_length = 16
+        byte_representation = int(str(user.id), 16).to_bytes(byte_length, 'big')
+        
+        # ian's fxn
+        is_steg, hash_val, pt_match = interpret_msg(message, byte_representation)
         app.logger.debug("line 237")
         # valid message or no?
         # should the hash_val variable be just the image hash?
         if (is_steg and pt_match) and (hash_val.hex() == img_hash):
             response_success = {
-                        "response": "Success",
+                        "message": "Success",
                         "owner": user.username
                     }
             return make_response(jsonify(response_success), 201)

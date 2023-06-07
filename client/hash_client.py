@@ -64,7 +64,7 @@ def gen_hash(img):
 	This function essentially combines the gen_pix_num and hash_num functions
 	above into one function for easier use in Flask API. 
 	"""
-	pix_num = gen_pix_num(test_img)
+	pix_num = gen_pix_num(img)
 	hash_val = hash_num(pix_num)
 	hash_val = hash_val.hex()
 	return hash_val

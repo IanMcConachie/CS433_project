@@ -233,7 +233,7 @@ def upload():
     if request.method == 'POST':
         # check if the 'image' file was uploaded
         if 'image' in request.files:
-            save_path = '/static/images/'
+            save_path = './static/images/'
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
 
@@ -248,13 +248,13 @@ def upload():
             img_hash = gen_hash(img_path)
             
             # get token from session
-            headers = headers = {'Authorization': f'Bearer {session["token"]}'}
+            headers = {'Authorization': f'Bearer {session["token"]}'}
             response = requests.get(f'http://restapi:5000/genmessage?hash={img_hash}',
                                headers=headers).json()
             
             # convert to bytes string then to base 64 encoding
-            msg = bytes.fromhex(response["message"])
-            encrypted_message_b64 = base64.b64encode(msg)
+            msg = response["message"]
+            encrypted_message_b64 = base64.b64encode(bytes.fromhex(msg))
             app.logger.debug(f"MESSAGE BEING EMBEDDED: {encrypted_message_b64}")
             
             # embed message
@@ -264,16 +264,14 @@ def upload():
             encrypted_img_path = os.path.join(save_path, "encrypted.png")
             encrypted_image.save(encrypted_img_path)
             app.logger.debug(f"IMAGE PATH = {encrypted_img_path}")
-            # image_base64 = base64.b64encode(image).decode('utf-8')
-            image_url = url_for('static', filename="encrypted.png")
-            return render_template('image.html', image_url=image_url)
+
+            return render_template('image.html', image_url=encrypted_img_path)
         
         # Return an error message if no 'image' file was uploaded
         flash("No image file found!")
     return render_template('upload.html')
 
 @app.route('/verify', methods=['GET', 'POST'])
-@login_required
 def verify():
     """
     - image with message is uploaded
@@ -285,7 +283,7 @@ def verify():
         # check if the 'image' file was uploaded
         if 'image' in request.files:
             image_file = request.files['image']
-            save_path = 'templates/static/images/'
+            save_path = './static/images/'
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
 
@@ -306,12 +304,14 @@ def verify():
                 
                 payload = {
                     "image_hash": img_hash,
-                    "message": encrypted_message_decoded
+                    "message": encrypted_message_decoded.hex()
                 }
-                app.logger.debug("line 216")
+                app.logger.debug(f"IMAGE HASH = {img_hash}")
+                app.logger.debug(f"MESSAGE = {payload['message']}")
                 response = requests.get(f'http://restapi:5000/verifymessage',
-                        payload=payload).json()
-                app.logger.debug("line 219")
+                        params=payload).json()
+                
+                app.logger.debug(f"response {response['message']}")
                 if response['message'] == 'Success':
                     owner = response['owner']
                     flash(f"The owner of this image is {owner}")
