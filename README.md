@@ -4,7 +4,7 @@ Final project for CS 433: Computer and Network Security
 
 ## DEMO
 
-Click [here](https://uoregon-my.sharepoint.com/:v:/g/personal/eliotm_uoregon_edu/EZb6NyhkT9JPnmcfVOG7pVEBKsLJhon5BpYfgzGc60iCIg?e=oJavIt) to view our demo!
+Click [here](https://uoregon-my.sharepoint.com/:v:/g/personal/eliotm_uoregon_edu/EUYrOuG07PBGv4W9QQ2uzDsB9tLYUoVmdgfRCaFpapJUkg?e=jCLAwS) to view our demo!
 
 
 ## TODO
